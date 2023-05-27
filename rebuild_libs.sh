@@ -1,13 +1,10 @@
 #!/bin/bash
 start_dir=$PWD
 
-echo $start_dir
-
 echo "rebuilding everything. . . "
 echo "only errors, and warnings will output. . . "
 echo "-------------------"
 sleep 1
-
 
 echo "rebuilding libcloudseed"
 cd CloudSeed
@@ -30,4 +27,3 @@ make | grep "warning:r\|error:"
 cd "$start_dir"
 echo "done building daisySP"
 echo "done building libs"
-

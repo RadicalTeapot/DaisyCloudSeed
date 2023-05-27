@@ -1,0 +1,119 @@
+{
+  "tasks": [
+    {
+      "command": "make clean; make",
+      "label": "Build",
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean; make; make program",
+      "label": "Build and program",
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean; make; make program-dfu",
+      "label": "Build and program dfu",
+      "group": {
+        "isDefault": true,
+        "kind": "build"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean;make",
+      "dependsOn": [
+        "Build libdaisy",
+        "Build DaisySP",
+        "Build CloudSeed"
+      ],
+      "label": "Build all",
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make clean;DEBUG=1 make",
+      "dependsOn": [
+        "Build libdaisy",
+        "Build DaisySP",
+        "Build CloudSeed"
+      ],
+      "label": "Build all debug",
+      "options": {
+        "cwd": "${workspaceFolder}/src"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make program-dfu",
+      "label": "program-dfu",
+      "problemMatcher": [],
+      "type": "shell"
+    },
+    {
+      "command": "make program",
+      "label": "program",
+      "problemMatcher": [],
+      "type": "shell"
+    },
+    {
+      "command": "make",
+      "label": "Build libdaisy",
+      "options": {
+        "cwd": "${workspaceFolder}/libDaisy"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make",
+      "label": "Build DaisySP",
+      "options": {
+        "cwd": "${workspaceFolder}/DaisySP"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    },
+    {
+      "command": "make",
+      "label": "Build CloudSeed",
+      "options": {
+        "cwd": "${workspaceFolder}/CloudSeed"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "type": "shell"
+    }
+  ],
+  "version": "2.0.0"
+}

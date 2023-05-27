@@ -1,35 +1,15 @@
-# DaisyCloudSeed (GuitarML fork for Terrarium)
+# DaisyCloudSeed
 Cloud Seed is an open source algorithmic reverb plugin under the MIT license, which can be found at [ValdemarOrn/CloudSeed](https://github.com/ValdemarOrn/CloudSeed).
-DaisyCloudSeed is a port to the Daisy environment for running on a Daisy Patch unit. This code (GuitarML's fork) further modifies DaisyCloudSeed
-for use on the Terrarium guitar pedal. The processing has been changed to mono (from stereo), which allows up to 5 delay lines,
-and fills out all of the Terrarium's controls. 
+DaisyCloudSeed is a port to the Daisy seed platform with the goal to be used as a module for [AE modular systems](https://www.tangiblewaves.com/).
 
-Watch the video demo on [YouTube](https://youtu.be/j-SGRWxBjz0)
-
-![app](https://github.com/GuitarML/DaisyCloudSeed/blob/master/petal/pedal.jpg)
-
-This repo also includes a modified version of CloudyReverb for Terrarium. It is a lighter reverb than CloudSeed (in terms of memory/processing requirements), and uses
-the reverb algorithm from [eurorack](https://github.com/pichenettes/eurorack/tree/master).
-
-Download the cloudseed.bin for Daisy Seed from the [Releases](https://github.com/GuitarML/DaisyCloudSeed/releases) page.
+This repo also includes a modified version of CloudyReverb. It is a lighter reverb than CloudSeed (in terms of memory/processing requirements)
 
 ## Getting started
-The new code for Terrarium has been added to ```DaisyCloudSeed/petal```.
-Build the daisy libraries and CloudSeed with (after installing the Daisy Toolchain):
+Build the libraries, source code and upload to the Daisy seed (after pressing on the boot and reset buttons):
 ```
-./rebuild_libs.sh
-cd petal/CloudSeed
-make
+./rebuild_all.sh && ./upload.sh
 ```
-
-Then flash your terrarium with the following commands (or use the [Electrosmith Web Programmer](https://electro-smith.github.io/Programmer/))
-```
-cd your_pedal
-# using USB (after entering bootloader mode)
-make program-dfu
-# using JTAG/SWD adaptor (like STLink)
-make program
-```
+Or run the (default) task in VSCode `Build and program DFU`
 
 # Control
 
@@ -41,10 +21,9 @@ make program
 | Ctrl 4 | Late Reverberation Feedback | Adjusts amount of signal fed back through the delay line. |
 | Ctrl 5 | Early Reverberation Dampening | Controls amount of dampening for the early reverb stage. Actual parameter name is "TapDecay" |
 | Ctrl 6 | Late Reverberation Decay | Adjust the decay time of the late reverberation stage. |
-| SW 1 - 4 | Selectable Delay Lines | Turn on or off to engage from 1 to 5 delay lines (1 delay line is always on) The order doesn't matter, just the total number that are on. (i.e., 1st and 4th switch on is the same as 2nd and 3rd switch on)|
-| FS 1 | Bypass/Active | Bypass / effect engaged |
-| FS 2 | Cycle Preset | Loads the next available Preset, starts at beginning after the last in the list. These are the same as the original Cloud Seed plugin presets, except for "Through the Looking Glass" |
+| Button 1 | Bypass/Active | Bypass / effect engaged |
+| Button 2 | Cycle Preset | Loads the next available Preset, starts at beginning after the last in the list. |
 | LED 1 | Bypass/Active Indicator |Illuminated when effect is set to Active |
 | LED 2 | Not used | N/A |
-| Audio In 1 | Audio input | Mono only for Terrarium |
-| Audio Out 1 | Mix Out | Mono only for Terrarium |
+| Audio In 1 | Audio input | Mono only for now |
+| Audio Out 1 | Mix Out | Mono only for now |
