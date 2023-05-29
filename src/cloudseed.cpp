@@ -13,13 +13,31 @@ using namespace daisy;
 using namespace daisysp;
 
 DaisySeed hw;
-// ::daisy::Parameter dryOut, earlyOut, mainOut, time, diffusion, tapDecay;
-bool bypass;
-int currentPresetIndex;
-// Led led1, led2;
+enum Inputs {
+    dryOut = 0,     // Dry / Wet
+    earlyOut,       // Early reverb lvl
+    mainOut,        // Late reverb lvl
+    feedback,       // Late reverb feedback
+    tapDecay,       // Early reverb dampening
+    time,           // Late reverb decay
+    INPUTS_COUNT,
+};
+float currentValues[INPUTS_COUNT],
+      previousValues[INPUTS_COUNT];
 
-// Initialize "previous" p values
-// float pdryout_value, pearlyout_value, pmainout_value, ptime_value, pdiffusion_value, pnumDelayLines, ptap_decay_value;
+struct GPIOPin {
+    daisy::Pin pin;
+    GPIO gpio;
+    bool value;
+    bool previous;
+};
+GPIOPin presetCycleButton;
+GPIOPin bypassSwitch;
+int currentPresetIndex;
+
+const size_t blockSize = 48;
+float ins[blockSize];
+float outs[blockSize];
 
 CloudSeed::ReverbController *reverb = 0;
 
@@ -84,78 +102,60 @@ void cyclePreset()
     setPreset(currentPresetIndex);
 }
 
+void readAdcValues()
+{
+    // TODO use a one pole filter to smooth those out (calling freq is sampleRate / blockSize)
+    currentValues[dryOut] = hw.adc.GetFloat(dryOut);
+    currentValues[earlyOut] = hw.adc.GetFloat(earlyOut);
+    currentValues[mainOut] = hw.adc.GetFloat(mainOut);
+    currentValues[feedback] = hw.adc.GetFloat(feedback);
+    currentValues[tapDecay] = hw.adc.GetFloat(tapDecay);
+    currentValues[time] = hw.adc.GetFloat(time);
+}
+
+void updateReverbParameters()
+{
+    readAdcValues();
+
+    // TODO Code used to check if parameter changed from previous value before updating
+    // reverb params, check if needed and if so use a threshold value to check if changed
+    reverb->SetParameter(::Parameter::DryOut, currentValues[dryOut]);
+    reverb->SetParameter(::Parameter::EarlyOut, currentValues[earlyOut]);
+    reverb->SetParameter(::Parameter::MainOut, currentValues[mainOut]);
+    reverb->SetParameter(::Parameter::LateDiffusionFeedback, currentValues[feedback]);
+    reverb->SetParameter(::Parameter::TapDecay, currentValues[tapDecay]);
+    reverb->SetParameter(::Parameter::LineDecay, currentValues[time]);
+}
+
+void updateSwitches()
+{
+    presetCycleButton.previous = presetCycleButton.value;
+    presetCycleButton.value = presetCycleButton.gpio.Read();
+
+    bypassSwitch.previous = bypassSwitch.value;
+    bypassSwitch.value = bypassSwitch.gpio.Read();
+}
+
 // This runs at a fixed rate, to prepare audio samples
 static void AudioCallback(AudioHandle::InputBuffer  in,
                           AudioHandle::OutputBuffer out,
                           size_t                    size)
 {
-    // hw.ProcessAllControls();
-    // led1.Update();
-    // led2.Update();
+    updateReverbParameters();
+    updateSwitches();
 
-    // float dryout_value = dryOut.Process();
-    // float earlyout_value = earlyOut.Process();
-    // float mainout_value = mainOut.Process();
-    // float time_value = time.Process();
-    // float diffusion_value = diffusion.Process();
-    // float tap_decay_value = tapDecay.Process();
-
-    // if ((pdryout_value < dryout_value) || ( pdryout_value> dryout_value))
-    // {
-    //   reverb->SetParameter(::Parameter::DryOut, dryout_value);
-    //   pdryout_value = dryout_value;
-    // }
-
-    // if ((pearlyout_value < earlyout_value) || ( pearlyout_value> earlyout_value))
-    // {
-    //   reverb->SetParameter(::Parameter::EarlyOut, earlyout_value);
-    //   pearlyout_value = earlyout_value;
-    // }
-
-    // if ((pmainout_value < mainout_value) || ( pmainout_value > mainout_value))
-    // {
-    //   reverb->SetParameter(::Parameter::MainOut, mainout_value);
-    //   pmainout_value = mainout_value;
-    // }
-
-    // if ((ptime_value < time_value) || ( ptime_value > time_value))
-    // {
-    //   reverb->SetParameter(::Parameter::LineDecay, time_value);
-    //   ptime_value = time_value;
-    // }
-    // if ((pdiffusion_value < diffusion_value) || ( pdiffusion_value > diffusion_value))
-    // {
-    //   reverb->SetParameter(::Parameter::LateDiffusionFeedback, diffusion_value);
-    //   pdiffusion_value = diffusion_value;
-    // }
-
-    // if ((ptap_decay_value < tap_decay_value) || ( ptap_decay_value > tap_decay_value))
-    // {
-    //   reverb->SetParameter(::Parameter::TapDecay, tap_decay_value);
-    //   ptap_decay_value = tap_decay_value;
-    // }
-
-    float ins[48];
-    float outs[48];
     for (size_t i = 0; i < size; i++)
     {
         ins[i] = in[0][i];
     }
 
-    // // (De-)Activate bypass and toggle LED when left footswitch is pressed
-    // if(hw.switches[Terrarium::FOOTSWITCH_1].RisingEdge())
-    // {
-    //     bypass = !bypass;
-    //     led1.Set(bypass ? 0.0f : 1.0f);
-    // }
+    // Cycle available models
+    if(presetCycleButton.value && !presetCycleButton.previous) // Rising edge
+    {
+        cyclePreset();
+    }
 
-    // // Cycle available models
-    // if(hw.switches[Terrarium::FOOTSWITCH_2].RisingEdge())
-    // {
-    //     cyclePreset();
-    // }
-
-    if(!bypass) {
+    if(!bypassSwitch.value) {
         reverb->Process(ins, outs, 48);
         for (size_t i = 0; i < size; i++)
         {
@@ -169,47 +169,47 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
     }
 }
 
+void AdcInit()
+{
+    AdcChannelConfig adcChannelConfig[INPUTS_COUNT];
+    adcChannelConfig[dryOut].InitSingle(daisy::seed::A0);
+    adcChannelConfig[earlyOut].InitSingle(daisy::seed::A1);
+    adcChannelConfig[mainOut].InitSingle(daisy::seed::A2);
+    adcChannelConfig[feedback].InitSingle(daisy::seed::A3);
+    adcChannelConfig[tapDecay].InitSingle(daisy::seed::A4);
+    adcChannelConfig[time].InitSingle(daisy::seed::A5);
+    hw.adc.Init(adcChannelConfig, INPUTS_COUNT);
+}
+
+void GPIOInit()
+{
+    presetCycleButton.pin = daisy::seed::D29;
+    presetCycleButton.gpio = GPIO();
+    presetCycleButton.gpio.Init(presetCycleButton.pin, GPIO::Mode::INPUT, GPIO::Pull::PULLDOWN);
+
+    bypassSwitch.pin = daisy::seed::D30;
+    bypassSwitch.gpio = GPIO();
+    bypassSwitch.gpio.Init(bypassSwitch.pin, GPIO::Mode::INPUT, GPIO::Pull::PULLDOWN);
+}
+
 int main(void)
 {
     hw.Init();
-    //hw.SetAudioBlockSize(4);
+    hw.SetAudioBlockSize(blockSize);
     float sampleRate = hw.AudioSampleRate();
-    currentPresetIndex = 0;
 
     AudioLib::ValueTables::Init();
     CloudSeed::FastSin::Init();
 
-    bypass = false;
     currentPresetIndex = 0;
-
     reverb = new CloudSeed::ReverbController(sampleRate);
     setPreset(currentPresetIndex);
 
-    // dryOut.Init(hw.knob[Terrarium::KNOB_1], 0.0f, 1.0f, ::daisy::Parameter::LINEAR);
-    // earlyOut.Init(hw.knob[Terrarium::KNOB_2], 0.0f, 1.0f, ::daisy::Parameter::LINEAR);
-    // mainOut.Init(hw.knob[Terrarium::KNOB_3], 0.0f, 1.0f, ::daisy::Parameter::LINEAR);
-    // diffusion.Init(hw.knob[Terrarium::KNOB_4], 0.0f, 1.0f, ::daisy::Parameter::LINEAR);
-    // tapDecay.Init(hw.knob[Terrarium::KNOB_5], 0.0f, 1.0f, ::daisy::Parameter::LINEAR);
-    // time.Init(hw.knob[Terrarium::KNOB_6], 0.0f, 1.0f, ::daisy::Parameter::LINEAR);
+    AdcInit();
+    GPIOInit();
 
-    // pdryout_value = 0.0;
-    // pearlyout_value = 0.0;
-    // pmainout_value = 0.0;
-    // ptime_value = 0.0;
-    // pdiffusion_value = 0.0;
-    // ptap_decay_value = 0.0;
-
-    // Init the LEDs and set activate bypass
-    // led1.Init(hw.GetPin(Terrarium::LED_1),false);
-    // led1.Update();
-
-    // led2.Init(hw.GetPin(Terrarium::LED_2),false);
-    // led2.Update();
-
-    // hw.adc.Start();
+    hw.adc.Start();
     hw.StartAudio(AudioCallback);
-    for (;;)
-    {
-        // Do Stuff Infinitely Here
-    }
+
+    for (;;) {}
 }
