@@ -35,9 +35,8 @@ namespace CloudSeed
 	private:
                 // IMPORTANT: CHANGE "TotalLineCount" FOR DAISY SEED HARDWARE
                 //            Original CloudSeed plugin uses 8 Delay Lines, or 12 delay lines?
-                //            DaisyCloudSeed adjusted to 2 to use with Stereo on DaisyPatch hardware (otherwise causes buffer underruns for most presets (except ChorusDelay)
-                //            4/26/2023 GuitarML fork of DaisyCloudSeed uses 4, able to increase for Mono Only Terrarium platform (mono guitar pedal using Daisy Seed)
-		static const int TotalLineCount = 5;  
+                //            Adjusted to 2 to use with Stereo on DaisySeed hardware
+		static const int TotalLineCount = 2;
 
 		map<Parameter, float> parameters;
 		int samplerate;
@@ -70,7 +69,7 @@ namespace CloudSeed
 		ChannelLR channelLr;
 
 	public:
-		
+
 		ReverbChannel(int bufferSize, int samplerate, ChannelLR leftOrRight)
 			: preDelay(bufferSize, (int)(samplerate * 1.0), 100) // 1 second delay buffer
 			, multitap(samplerate) // use samplerate = 1 second delay buffer
@@ -457,7 +456,7 @@ namespace CloudSeed
 			{
 				auto modAmount = lineModAmount * (0.7 + 0.3 * delayLineSeeds[i + count]);
 				auto modRate = lineModRate * (0.7 + 0.3 * delayLineSeeds[i + 2 * count]) / samplerate;
-				
+
 				auto delaySamples = (0.5 + 1.0 * delayLineSeeds[i]) * lineDelaySamples;
 				if (delaySamples < modAmount + 2) // when the delay is set really short, and the modulation is very high
 					delaySamples = modAmount + 2; // the mod could actually take the delay time negative, prevent that! -- provide 2 extra sample as margin of safety

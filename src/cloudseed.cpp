@@ -38,8 +38,8 @@ GPIOPin bypassSwitch;
 int currentPresetIndex;
 
 const size_t blockSize = 48;
-float ins[blockSize];
-float outs[blockSize];
+float ins[blockSize*2];
+float outs[blockSize*2];
 
 #ifdef PERFORMANCE_MONITOR
 CpuLoadMeter loadMeter;
@@ -156,7 +156,8 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
 
     for (size_t i = 0; i < size; i++)
     {
-        ins[i] = in[0][i];
+        ins[i*2] = in[0][i];
+        ins[i*2+1] = in[0][i];
     }
 
     // Cycle available models
@@ -166,15 +167,17 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
     }
 
     if(!bypassSwitch.value) {
-        reverb->Process(ins, outs, 48);
+        reverb->Process(ins, outs, blockSize);
         for (size_t i = 0; i < size; i++)
         {
-            out[0][i] = outs[i] * 1.2;  // Slight overall volume boost at 1.2
+            out[0][i] = outs[i*2] * 1.2;  // Slight overall volume boost at 1.2
+            out[1][i] = outs[i*2+1] * 1.2;  // Slight overall volume boost at 1.2
         }
     } else {
         for (size_t i = 0; i < size; i++)
         {
             out[0][i] = in[0][i];
+            out[1][i] = in[0][i];
         }
     }
 
