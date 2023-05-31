@@ -20,25 +20,40 @@ namespace CloudSeed
 	class ReverbController
 	{
 	private:
-		static const int bufferSize = 48; // just make it huge by default...
-		int samplerate;
+		static const int blockSize = 48; // just make it huge by default...
+		int sampleRate;
 
-		ReverbChannel channelL;
-		ReverbChannel channelR;
-		float leftChannelIn[bufferSize];
-		float rightChannelIn[bufferSize];
-		float leftLineBuffer[bufferSize];
-		float rightLineBuffer[bufferSize];
+		vector<ReverbChannel> channels;
+        size_t channelCount;
+        float lineCountScaleFactor;
+		float leftChannelIn[blockSize];
+		float rightChannelIn[blockSize];
+		float leftLineBuffer[blockSize];
+		float rightLineBuffer[blockSize];
 		float parameters[(int)Parameter::Count];
 
 	public:
-		ReverbController(int samplerate)
-			: channelL(bufferSize, samplerate, ChannelLR::Left)
-			, channelR(bufferSize, samplerate, ChannelLR::Right)
+		ReverbController(int sampleRate)
 		{
-			this->samplerate = samplerate;
-            initFactoryChorus();
+			this->sampleRate = sampleRate;
 		}
+
+        void InitStereo() {
+            channels.clear();
+            channels.push_back(ReverbChannel(blockSize, sampleRate, ChannelLR::Left, 2));
+            channels.push_back(ReverbChannel(blockSize, sampleRate, ChannelLR::Right, 2));
+            channelCount = 2;
+            lineCountScaleFactor = 1.999f;
+            initFactoryChorus();
+        }
+
+        void InitMono() {
+            channels.clear();
+            channels.push_back(ReverbChannel(blockSize, sampleRate, ChannelLR::Left, 5));
+            channelCount = 1;
+            lineCountScaleFactor = 4.999f;
+            initFactoryChorus();
+        }
 
 		void initFactoryChorus()
 		{
@@ -559,17 +574,17 @@ namespace CloudSeed
 
 		}
 
-		int GetSamplerate()
+		int GetSampleRate()
 		{
-			return samplerate;
+			return sampleRate;
 		}
 
-		void SetSamplerate(int samplerate)
+		void SetSampleRate(int sampleRate)
 		{
-			this->samplerate = samplerate;
+			this->sampleRate = sampleRate;
 
-			channelL.SetSamplerate(samplerate);
-			channelR.SetSamplerate(samplerate);
+            for (auto channel : channels)
+                channel.SetSamplerate(sampleRate);
 		}
 
 		int GetParameterCount()
@@ -605,7 +620,7 @@ namespace CloudSeed
 			case Parameter::DiffusionFeedback:         return P(Parameter::DiffusionFeedback);
 
 				// Late
-			case Parameter::LineCount:                 return 1 + (int)(P(Parameter::LineCount) * 1.999);   // Change from 11.999 to 1.999
+			case Parameter::LineCount:                 return 1 + (int)(P(Parameter::LineCount) * lineCountScaleFactor);
 			case Parameter::LineDelay:                 return (int)(20.0 + ValueTables::Get(P(Parameter::LineDelay), ValueTables::Response2Dec) * 980);
 			case Parameter::LineDecay:                 return 0.05 + ValueTables::Get(P(Parameter::LineDecay), ValueTables::Response3Dec) * 59.95;
 
@@ -665,40 +680,22 @@ namespace CloudSeed
 			parameters[(int)param] = value;
 			auto scaled = GetScaledParameter(param);
 
-			channelL.SetParameter(param, scaled);
-			channelR.SetParameter(param, scaled);
+            for (auto channel : channels)
+                channel.SetParameter(param, scaled);
 		}
-
-
 
 		void ClearBuffers()
 		{
-			channelL.ClearBuffers();
-			channelR.ClearBuffers();
+            for (auto channel : channels)
+                channel.ClearBuffers();
 		}
 
-		void Process(float* input, float* output, int bufferSize)
+		void Process(float* input, float* output)
 		{
-			auto len = bufferSize;
-			auto cm = GetScaledParameter(Parameter::InputMix) * 0.5;
-			auto cmi = (1 - cm);
-
-			for (int i = 0; i < len; i++)
-			{
-				leftChannelIn[i] = input[i*2] * cmi + input[i*2+1] * cm;
-				rightChannelIn[i] = input[i*2+1] * cmi + input[i*2] * cm;
-			}
-
-			channelL.Process(leftChannelIn, len);
-			channelR.Process(rightChannelIn, len);
-			auto leftOut = channelL.GetOutput();
-			auto rightOut = channelR.GetOutput();
-
-			for (int i = 0; i < len; i++)
-			{
-				output[i*2] = leftOut[i];
-				output[i*2+1] = rightOut[i];
-			}
+            if (channelCount == 2)
+                ProcessStereo(input, output);
+            else
+                ProcessMono(input, output);
 		}
 
 	private:
@@ -707,6 +704,44 @@ namespace CloudSeed
 			auto idx = (int)para;
 			return idx >= 0 && idx < (int)Parameter::Count ? parameters[idx] : 0.0;
 		}
+
+        void ProcessStereo(float *input, float *output)
+        {
+            auto cm = GetScaledParameter(Parameter::InputMix) * 0.5;
+            auto cmi = (1 - cm);
+
+            for (int i = 0; i < blockSize; i++)
+            {
+                leftChannelIn[i] = input[i * 2] * cmi + input[i * 2 + 1] * cm;
+                rightChannelIn[i] = input[i * 2 + 1] * cmi + input[i * 2] * cm;
+            }
+
+            channels[0].Process(leftChannelIn, blockSize);
+            channels[1].Process(rightChannelIn, blockSize);
+
+            auto leftOut = channels[0].GetOutput();
+            auto rightOut = channels[1].GetOutput();
+
+            for (int i = 0; i < blockSize; i++)
+            {
+                output[i * 2] = leftOut[i];
+                output[i * 2 + 1] = rightOut[i];
+            }
+        }
+
+        void ProcessMono(float *input, float *output)
+        {
+            for (int i = 0; i < blockSize; i++)
+            {
+                leftChannelIn[i] = input[i];
+            }
+            channels[0].Process(leftChannelIn, blockSize);
+            auto leftOut = channels[0].GetOutput();
+            for (int i = 0; i < blockSize; i++)
+            {
+                output[i * 2] = leftOut[i];
+            }
+        }
 	};
 }
 #endif

@@ -167,7 +167,7 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
     }
 
     if(!bypassSwitch.value) {
-        reverb->Process(ins, outs, blockSize);
+        reverb->Process(ins, outs);
         for (size_t i = 0; i < size; i++)
         {
             out[0][i] = outs[i*2] * 1.2;  // Slight overall volume boost at 1.2
@@ -225,6 +225,7 @@ int main(void)
 
     currentPresetIndex = 0;
     reverb = new CloudSeed::ReverbController(sampleRate);
+    reverb->InitStereo();
     setPreset(currentPresetIndex);
 
     AdcInit();

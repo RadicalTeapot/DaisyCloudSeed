@@ -33,11 +33,6 @@ namespace CloudSeed
 	class ReverbChannel
 	{
 	private:
-                // IMPORTANT: CHANGE "TotalLineCount" FOR DAISY SEED HARDWARE
-                //            Original CloudSeed plugin uses 8 Delay Lines, or 12 delay lines?
-                //            Adjusted to 2 to use with Stereo on DaisySeed hardware
-		static const int TotalLineCount = 2;
-
 		map<Parameter, float> parameters;
 		int samplerate;
 		int bufferSize;
@@ -70,7 +65,7 @@ namespace CloudSeed
 
 	public:
 
-		ReverbChannel(int bufferSize, int samplerate, ChannelLR leftOrRight)
+		ReverbChannel(int bufferSize, int samplerate, ChannelLR leftOrRight, int totalLineCount)
 			: preDelay(bufferSize, (int)(samplerate * 1.0), 100) // 1 second delay buffer
 			, multitap(samplerate) // use samplerate = 1 second delay buffer
 			, highPass(samplerate)
@@ -79,7 +74,7 @@ namespace CloudSeed
 		{
 			this->channelLr = leftOrRight;
 
-			for (int i = 0; i < TotalLineCount; i++)
+			for (int i = 0; i < totalLineCount; i++)
 				lines.push_back(new (custom_pool_allocate(sizeof(DelayLine)))DelayLine(bufferSize, samplerate));
 
 			this->bufferSize = bufferSize;
@@ -88,7 +83,7 @@ namespace CloudSeed
 				this->parameters[static_cast<Parameter>(value)] = 0.0;
 
 			crossSeed = 0.0;
-			lineCount = TotalLineCount;
+			lineCount = totalLineCount;
 			diffuser.SetInterpolationEnabled(true);
 			highPass.SetCutoffHz(20);
 			lowPass.SetCutoffHz(20000);
