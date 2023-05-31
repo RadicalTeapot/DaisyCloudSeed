@@ -42,8 +42,8 @@ namespace CloudSeed
 		AllpassDiffuser diffuser;
 		vector<DelayLine*> lines;
 		AudioLib::ShaRandom rand;
-		AudioLib::Hp1 highPass;
 		AudioLib::Lp1 lowPass;
+		AudioLib::Hp1 highPass;
 		float* tempBuffer;
 		float* lineOutBuffer;
 		float* outBuffer;
@@ -68,9 +68,9 @@ namespace CloudSeed
 		ReverbChannel(int bufferSize, int samplerate, ChannelLR leftOrRight, int totalLineCount)
 			: preDelay(bufferSize, (int)(samplerate * 1.0), 100) // 1 second delay buffer
 			, multitap(samplerate) // use samplerate = 1 second delay buffer
-			, highPass(samplerate)
-			, lowPass(samplerate)
 			, diffuser(samplerate, 150) // 150ms buffer, to allow for 100ms + modulation time
+			, lowPass(samplerate)
+			, highPass(samplerate)
 		{
 			this->channelLr = leftOrRight;
 
@@ -116,7 +116,7 @@ namespace CloudSeed
 			highPass.SetSamplerate(samplerate);
 			lowPass.SetSamplerate(samplerate);
 
-			for (int i = 0; i < lines.size(); i++)
+			for (size_t i = 0; i < lines.size(); i++)
 			{
 				lines[i]->SetSamplerate(samplerate);
 			}
@@ -329,6 +329,8 @@ namespace CloudSeed
 				for (auto line : lines)
 					line->SetInterpolationEnabled(value >= 0.5);
 				break;
+            default:
+                break;
 			}
 		}
 
@@ -472,7 +474,7 @@ namespace CloudSeed
 
 		void UpdatePostDiffusion()
 		{
-			for (int i = 0; i < lines.size(); i++)
+			for (size_t i = 0; i < lines.size(); i++)
 				lines[i]->SetDiffuserSeed(((long long)postDiffusionSeed) * (i + 1), crossSeed);
 		}
 
