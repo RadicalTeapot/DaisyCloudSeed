@@ -9,7 +9,7 @@
 #include "../../CloudSeed/AudioLib/ValueTables.h"
 #include "../../CloudSeed/AudioLib/MathDefs.h"
 
-#define PERFORMANCE_MONITOR 1
+// #define PERFORMANCE_MONITOR 1
 
 using namespace daisy;
 using namespace daisysp;
@@ -224,8 +224,7 @@ int main(void)
     CloudSeed::FastSin::Init();
 
     currentPresetIndex = 0;
-    reverb = new CloudSeed::ReverbController(sampleRate);
-    reverb->InitStereo();
+    reverb = new CloudSeed::ReverbController(sampleRate, CloudSeed::StereoMode::Stereo);
     setPreset(currentPresetIndex);
 
     AdcInit();
