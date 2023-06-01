@@ -28,12 +28,12 @@ extern "C"
 
 	int GetSamplerate(ReverbController* item)
 	{
-		return item->GetSamplerate();
+		return item->GetSampleRate();
 	}
 
 	void SetSamplerate(ReverbController* item, int samplerate)
 	{
-		return item->SetSamplerate(samplerate);
+		return item->SetSampleRate(samplerate);
 	}
 
 	int GetParameterCount(ReverbController* item)

@@ -9,7 +9,8 @@
 #include "../../CloudSeed/AudioLib/ValueTables.h"
 #include "../../CloudSeed/AudioLib/MathDefs.h"
 
-#define PERFORMANCE_MONITOR 1
+// #define PERFORMANCE_MONITOR 1
+// #define VERBOSE 1
 
 using namespace daisy;
 using namespace daisysp;
@@ -27,19 +28,17 @@ enum class Inputs: int {
 float currentValues[(int)Inputs::Count],
       previousValues[(int)Inputs::Count];
 
-struct GPIOPin {
+struct {
     daisy::Pin pin;
     GPIO gpio;
     bool value;
     bool previous;
-};
-GPIOPin presetCycleButton;
-GPIOPin bypassSwitch;
+} presetCycleButton, bypassButton, stereoSwitch;
 int currentPresetIndex;
 
 const size_t blockSize = 48;
-float ins[blockSize];
-float outs[blockSize];
+float ins[blockSize*2];
+float outs[blockSize*2];
 
 #ifdef PERFORMANCE_MONITOR
 CpuLoadMeter loadMeter;
@@ -108,6 +107,18 @@ void cyclePreset()
     setPreset(currentPresetIndex);
 }
 
+void changeReverbMode()
+{
+#ifdef VERBOSE
+    hw.PrintLine("Stereo mode %d", stereoSwitch.value);
+#endif
+    if (stereoSwitch.value)
+        reverb->setStereoMode(CloudSeed::StereoMode::Stereo);
+    else
+        reverb->setStereoMode(CloudSeed::StereoMode::Mono);
+    setPreset(currentPresetIndex);
+}
+
 void readAdcValues()
 {
     // TODO use a one pole filter to smooth those out (calling freq is sampleRate / blockSize)
@@ -135,11 +146,14 @@ void updateReverbParameters()
 
 void updateSwitches()
 {
+    stereoSwitch.previous = stereoSwitch.value;
+    stereoSwitch.value = stereoSwitch.gpio.Read();
+
     presetCycleButton.previous = presetCycleButton.value;
     presetCycleButton.value = presetCycleButton.gpio.Read();
 
-    bypassSwitch.previous = bypassSwitch.value;
-    bypassSwitch.value = bypassSwitch.gpio.Read();
+    bypassButton.previous = bypassButton.value;
+    bypassButton.value = bypassButton.gpio.Read();
 }
 
 // This runs at a fixed rate, to prepare audio samples
@@ -153,10 +167,15 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
 
     updateReverbParameters();
     updateSwitches();
+    if (stereoSwitch.value != stereoSwitch.previous) // Rising or falling edge
+    {
+        changeReverbMode();
+    }
 
     for (size_t i = 0; i < size; i++)
     {
-        ins[i] = in[0][i];
+        ins[i*2] = in[0][i];
+        ins[i*2+1] = in[0][i];
     }
 
     // Cycle available models
@@ -165,16 +184,18 @@ static void AudioCallback(AudioHandle::InputBuffer  in,
         cyclePreset();
     }
 
-    if(!bypassSwitch.value) {
-        reverb->Process(ins, outs, 48);
+    if(!bypassButton.value) {
+        reverb->Process(ins, outs);
         for (size_t i = 0; i < size; i++)
         {
-            out[0][i] = outs[i] * 1.2;  // Slight overall volume boost at 1.2
+            out[0][i] = outs[i*2] * 1.2;  // Slight overall volume boost at 1.2
+            out[1][i] = outs[i*2+1] * 1.2;  // Slight overall volume boost at 1.2
         }
     } else {
         for (size_t i = 0; i < size; i++)
         {
             out[0][i] = in[0][i];
+            out[1][i] = in[0][i];
         }
     }
 
@@ -197,13 +218,17 @@ void AdcInit()
 
 void GPIOInit()
 {
+    stereoSwitch.pin = daisy::seed::D28;
+    stereoSwitch.gpio = GPIO();
+    stereoSwitch.gpio.Init(stereoSwitch.pin, GPIO::Mode::INPUT, GPIO::Pull::PULLDOWN);
+
     presetCycleButton.pin = daisy::seed::D29;
     presetCycleButton.gpio = GPIO();
     presetCycleButton.gpio.Init(presetCycleButton.pin, GPIO::Mode::INPUT, GPIO::Pull::PULLDOWN);
 
-    bypassSwitch.pin = daisy::seed::D30;
-    bypassSwitch.gpio = GPIO();
-    bypassSwitch.gpio.Init(bypassSwitch.pin, GPIO::Mode::INPUT, GPIO::Pull::PULLDOWN);
+    bypassButton.pin = daisy::seed::D30;
+    bypassButton.gpio = GPIO();
+    bypassButton.gpio.Init(bypassButton.pin, GPIO::Mode::INPUT, GPIO::Pull::PULLDOWN);
 }
 
 int main(void)
@@ -212,8 +237,11 @@ int main(void)
     hw.SetAudioBlockSize(blockSize);
     float sampleRate = hw.AudioSampleRate();
 
-    #ifdef PERFORMANCE_MONITOR
+    #if defined(VERBOSE) || defined(PERFORMANCE_MONITOR)
     hw.StartLog();
+    #endif
+
+    #ifdef PERFORMANCE_MONITOR
     loadMeter.Init(sampleRate, blockSize);
     #endif
 
@@ -221,7 +249,7 @@ int main(void)
     CloudSeed::FastSin::Init();
 
     currentPresetIndex = 0;
-    reverb = new CloudSeed::ReverbController(sampleRate);
+    reverb = new CloudSeed::ReverbController(sampleRate, CloudSeed::StereoMode::Mono);
     setPreset(currentPresetIndex);
 
     AdcInit();

@@ -29,7 +29,7 @@ namespace CloudSeed
 		vector<float> seedValues;
 		int seed;
 		float crossSeed;
-		int count;
+		size_t count;
 		float length;
 		float gain;
 		float decay;
@@ -174,14 +174,13 @@ namespace CloudSeed
 			auto scaleLength = length / sumLengths;
 			newTapPosition[0] = 0;
 
-			for (int i = 1; i < count; i++)
+			for (size_t i = 1; i < count; i++)
 			{
 				newTapPosition[i] = newTapPosition[i - 1] + (int)(tapData[i] * scaleLength);
 			}
 
-			float sumGains = 0.0;
 			float lastTapPos = newTapPosition[count - 1];
-			for (int i = 0; i < count; i++)
+			for (size_t i = 0; i < count; i++)
 			{
 				// when decay set to 0, there is no decay, when set to 1, the gain at the last sample is 0.01 = -40dB
 				auto g = std::pow(10, -decay * 2 * newTapPosition[i] / (float)(lastTapPos + 1));

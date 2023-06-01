@@ -33,12 +33,6 @@ namespace CloudSeed
 	class ReverbChannel
 	{
 	private:
-                // IMPORTANT: CHANGE "TotalLineCount" FOR DAISY SEED HARDWARE
-                //            Original CloudSeed plugin uses 8 Delay Lines, or 12 delay lines?
-                //            DaisyCloudSeed adjusted to 2 to use with Stereo on DaisyPatch hardware (otherwise causes buffer underruns for most presets (except ChorusDelay)
-                //            4/26/2023 GuitarML fork of DaisyCloudSeed uses 4, able to increase for Mono Only Terrarium platform (mono guitar pedal using Daisy Seed)
-		static const int TotalLineCount = 5;  
-
 		map<Parameter, float> parameters;
 		int samplerate;
 		int bufferSize;
@@ -48,8 +42,8 @@ namespace CloudSeed
 		AllpassDiffuser diffuser;
 		vector<DelayLine*> lines;
 		AudioLib::ShaRandom rand;
-		AudioLib::Hp1 highPass;
 		AudioLib::Lp1 lowPass;
+		AudioLib::Hp1 highPass;
 		float* tempBuffer;
 		float* lineOutBuffer;
 		float* outBuffer;
@@ -70,17 +64,17 @@ namespace CloudSeed
 		ChannelLR channelLr;
 
 	public:
-		
-		ReverbChannel(int bufferSize, int samplerate, ChannelLR leftOrRight)
+
+		ReverbChannel(int bufferSize, int samplerate, ChannelLR leftOrRight, int totalLineCount)
 			: preDelay(bufferSize, (int)(samplerate * 1.0), 100) // 1 second delay buffer
 			, multitap(samplerate) // use samplerate = 1 second delay buffer
-			, highPass(samplerate)
-			, lowPass(samplerate)
 			, diffuser(samplerate, 150) // 150ms buffer, to allow for 100ms + modulation time
+			, lowPass(samplerate)
+			, highPass(samplerate)
 		{
 			this->channelLr = leftOrRight;
 
-			for (int i = 0; i < TotalLineCount; i++)
+			for (int i = 0; i < totalLineCount; i++)
 				lines.push_back(new (custom_pool_allocate(sizeof(DelayLine)))DelayLine(bufferSize, samplerate));
 
 			this->bufferSize = bufferSize;
@@ -89,7 +83,7 @@ namespace CloudSeed
 				this->parameters[static_cast<Parameter>(value)] = 0.0;
 
 			crossSeed = 0.0;
-			lineCount = TotalLineCount;
+			lineCount = totalLineCount;
 			diffuser.SetInterpolationEnabled(true);
 			highPass.SetCutoffHz(20);
 			lowPass.SetCutoffHz(20000);
@@ -122,7 +116,7 @@ namespace CloudSeed
 			highPass.SetSamplerate(samplerate);
 			lowPass.SetSamplerate(samplerate);
 
-			for (int i = 0; i < lines.size(); i++)
+			for (size_t i = 0; i < lines.size(); i++)
 			{
 				lines[i]->SetSamplerate(samplerate);
 			}
@@ -335,6 +329,8 @@ namespace CloudSeed
 				for (auto line : lines)
 					line->SetInterpolationEnabled(value >= 0.5);
 				break;
+            default:
+                break;
 			}
 		}
 
@@ -457,7 +453,7 @@ namespace CloudSeed
 			{
 				auto modAmount = lineModAmount * (0.7 + 0.3 * delayLineSeeds[i + count]);
 				auto modRate = lineModRate * (0.7 + 0.3 * delayLineSeeds[i + 2 * count]) / samplerate;
-				
+
 				auto delaySamples = (0.5 + 1.0 * delayLineSeeds[i]) * lineDelaySamples;
 				if (delaySamples < modAmount + 2) // when the delay is set really short, and the modulation is very high
 					delaySamples = modAmount + 2; // the mod could actually take the delay time negative, prevent that! -- provide 2 extra sample as margin of safety
@@ -478,7 +474,7 @@ namespace CloudSeed
 
 		void UpdatePostDiffusion()
 		{
-			for (int i = 0; i < lines.size(); i++)
+			for (size_t i = 0; i < lines.size(); i++)
 				lines[i]->SetDiffuserSeed(((long long)postDiffusionSeed) * (i + 1), crossSeed);
 		}
 

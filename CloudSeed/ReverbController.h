@@ -17,37 +17,53 @@
 
 namespace CloudSeed
 {
-	class ReverbController
+    enum class StereoMode
+    {
+        Mono = 0,
+        Stereo
+    };
+    class ReverbController
 	{
 	private:
-		static const int bufferSize = 48; // just make it huge by default...
-		int samplerate;
+		static const int blockSize = 48; // just make it huge by default...
+		int sampleRate;
 
 		ReverbChannel channelL;
-		//ReverbChannel channelR;
-		float leftChannelIn[bufferSize];
-		//float rightChannelIn[bufferSize];
-		float leftLineBuffer[bufferSize];
-		//float rightLineBuffer[bufferSize];
+        ReverbChannel channelR;
+		ReverbChannel channelMono;
+        size_t channelCount;
+        float lineCountScaleFactor;
+		float leftChannelIn[blockSize];
+		float rightChannelIn[blockSize];
+		float leftLineBuffer[blockSize];
+		float rightLineBuffer[blockSize];
 		float parameters[(int)Parameter::Count];
+        StereoMode stereoMode;
 
 	public:
-		ReverbController(int samplerate)
-			: channelL(bufferSize, samplerate, ChannelLR::Left)
-			//, channelR(bufferSize, samplerate, ChannelLR::Right)
+		ReverbController(int sampleRate, StereoMode stereoMode)
+        : channelL(blockSize, sampleRate, ChannelLR::Left, 2)
+        , channelR(blockSize, sampleRate, ChannelLR::Right, 2)
+        , channelMono(blockSize, sampleRate, ChannelLR::Left, 5)
 		{
-			this->samplerate = samplerate;
-			initFactoryChorus();
-			//initFactoryDullEchos();
-			//initFactoryHyperplane();
-			//initFactoryMediumSpace();
-			//initFactoryNoiseInTheHallway();
-			//initFactoryRubiKaFields();
-			//initFactorySmallRoom();
-			//initFactory90sAreBack();
-			//initFactoryThroughTheLookingGlass();
+            this->sampleRate = sampleRate;
+            setStereoMode(stereoMode);
+            initFactoryChorus();
+        }
 
-		}
+        void setStereoMode(StereoMode stereoMode)
+        {
+            this->stereoMode = stereoMode;
+            switch (stereoMode)
+            {
+            case StereoMode::Mono:
+                lineCountScaleFactor = 4.999f;
+                break;
+            case StereoMode::Stereo:
+                lineCountScaleFactor = 1.999f;
+                break;
+            }
+        }
 
 		void initFactoryChorus()
 		{
@@ -107,7 +123,6 @@ namespace CloudSeed
 
 		}
 
-
 		void initFactoryDullEchos()
 		{
 			//parameters from Dull Echos in
@@ -165,7 +180,6 @@ namespace CloudSeed
 			}
 
 		}
-
 
 		void initFactoryHyperplane()
 		{
@@ -399,7 +413,6 @@ namespace CloudSeed
 
 		}
 
-
 		void initFactorySmallRoom()
 		{
 			//parameters from Small Room in
@@ -571,18 +584,19 @@ namespace CloudSeed
 
 		}
 
-		int GetSamplerate()
+		int GetSampleRate()
 		{
-			return samplerate;
+			return sampleRate;
 		}
 
-		void SetSamplerate(int samplerate)
+		void SetSampleRate(int sampleRate)
 		{
-			this->samplerate = samplerate;
+			this->sampleRate = sampleRate;
 
-			channelL.SetSamplerate(samplerate);
-			//channelR.SetSamplerate(samplerate);
-		}
+            channelL.SetSamplerate(sampleRate);
+            channelR.SetSamplerate(sampleRate);
+            channelMono.SetSamplerate(sampleRate);
+        }
 
 		int GetParameterCount()
 		{
@@ -617,7 +631,7 @@ namespace CloudSeed
 			case Parameter::DiffusionFeedback:         return P(Parameter::DiffusionFeedback);
 
 				// Late
-			case Parameter::LineCount:                 return 1 + (int)(P(Parameter::LineCount) * 4.999);   // Change from 11.999 to 4.999
+			case Parameter::LineCount:                 return 1 + (int)(P(Parameter::LineCount) * lineCountScaleFactor);
 			case Parameter::LineDelay:                 return (int)(20.0 + ValueTables::Get(P(Parameter::LineDelay), ValueTables::Response2Dec) * 980);
 			case Parameter::LineDecay:                 return 0.05 + ValueTables::Get(P(Parameter::LineDecay), ValueTables::Response3Dec) * 59.95;
 
@@ -677,42 +691,36 @@ namespace CloudSeed
 			parameters[(int)param] = value;
 			auto scaled = GetScaledParameter(param);
 
-			channelL.SetParameter(param, scaled);
-			//channelR.SetParameter(param, scaled);
-		}
-
-
+            channelL.SetParameter(param, scaled);
+            channelR.SetParameter(param, scaled);
+            channelMono.SetParameter(param, scaled);
+        }
 
 		void ClearBuffers()
 		{
-			channelL.ClearBuffers();
-			//channelR.ClearBuffers();
-		}
+            switch(stereoMode)
+            {
+            case StereoMode::Mono:
+                channelMono.ClearBuffers();
+                break;
+            case StereoMode::Stereo:
+                channelL.ClearBuffers();
+                channelR.ClearBuffers();
+                break;
+            }
+        }
 
-		void Process(float* input, float* output, int bufferSize)
+		void Process(float* input, float* output)
 		{
-			auto len = bufferSize;
-			//auto cm = GetScaledParameter(Parameter::InputMix) * 0.5; // Removing L/R mixing for Mono Terrarium
-			//auto cmi = (1 - cm);                                     // Removing L/R mixing for Mono Terrarium
-
-			for (int i = 0; i < len; i++)
-			{
-				//leftChannelIn[i] = input[i *2] // * cmi + input[i*2+1] * cm;
-                leftChannelIn[i] = input[i];                        // Removing L/R mixing for Mono Terrarium
-				//rightChannelIn[i] = input[i*2+1] * cmi + input[i*2] * cm;
-			}
-
-			channelL.Process(leftChannelIn, len);
-			//channelR.Process(rightChannelIn, len);
-			auto leftOut = channelL.GetOutput();
-			//auto rightOut = channelR.GetOutput();
-
-			for (int i = 0; i < len; i++)
-			{
-				//output[i*2] = leftOut[i];
-                output[i] = leftOut[i];
-				//output[i*2+1] = rightOut[i];
-			}
+            switch(stereoMode)
+            {
+            case StereoMode::Mono:
+                ProcessMono(input, output);
+                break;
+            case StereoMode::Stereo:
+                ProcessStereo(input, output);
+                break;
+            }
 		}
 
 	private:
@@ -721,6 +729,47 @@ namespace CloudSeed
 			auto idx = (int)para;
 			return idx >= 0 && idx < (int)Parameter::Count ? parameters[idx] : 0.0;
 		}
+
+        void ProcessStereo(float *input, float *output)
+        {
+            auto cm = GetScaledParameter(Parameter::InputMix) * 0.5;
+            auto cmi = (1 - cm);
+
+            for (int i = 0; i < blockSize; i++)
+            {
+                leftChannelIn[i] = input[i * 2] * cmi + input[i * 2 + 1] * cm;
+                rightChannelIn[i] = input[i * 2 + 1] * cmi + input[i * 2] * cm;
+            }
+
+            channelL.Process(leftChannelIn, blockSize);
+            channelR.Process(rightChannelIn, blockSize);
+
+            auto leftOut = channelL.GetOutput();
+            auto rightOut = channelR.GetOutput();
+
+            for (int i = 0; i < blockSize; i++)
+            {
+                output[i * 2] = leftOut[i];
+                output[i * 2 + 1] = rightOut[i];
+            }
+        }
+
+        void ProcessMono(float *input, float *output)
+        {
+            for (int i = 0; i < blockSize; i++)
+            {
+                leftChannelIn[i] = input[i * 2];
+            }
+
+            channelMono.Process(leftChannelIn, blockSize);
+            auto monoOut = channelMono.GetOutput();
+
+            for (int i = 0; i < blockSize; i++)
+            {
+                output[i * 2] = monoOut[i];
+                output[i * 2 + 1] = monoOut[i];
+            }
+        }
 	};
 }
 #endif
