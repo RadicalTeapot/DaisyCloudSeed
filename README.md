@@ -11,6 +11,9 @@ Build the libraries, source code and upload to the Daisy seed (after pressing on
 ```
 Or run the (default) task in VSCode `Build and program DFU`
 
+## Notes
+The number of delay lines is higher in Mono mode than in Stereo mode (5 in Mono vs 2 per channel in Stereo) to keep required processing within the CPU limits. 
+
 # Control
 
 | Control | Description | Comment |
@@ -21,9 +24,9 @@ Or run the (default) task in VSCode `Build and program DFU`
 | Ctrl 4 | Late Reverberation Feedback | Adjusts amount of signal fed back through the delay line. |
 | Ctrl 5 | Early Reverberation Dampening | Controls amount of dampening for the early reverb stage. Actual parameter name is "TapDecay" |
 | Ctrl 6 | Late Reverberation Decay | Adjust the decay time of the late reverberation stage. |
-| Button 1 | Bypass/Active | Bypass / effect engaged |
+| Button 1 | Bypass / Active | Bypass / effect engaged |
 | Button 2 | Cycle Preset | Loads the next available Preset, starts at beginning after the last in the list. |
-| LED 1 | Bypass/Active Indicator |Illuminated when effect is set to Active |
-| LED 2 | Not used | N/A |
+| Switch 1 | Mono / Stereo mode | Output same channel to both Audio Out 1 and 2 in Mono mode, or the left / right channels in Stereo mode |
 | Audio In 1 | Audio input | Mono only for now |
-| Audio Out 1 | Mix Out | Mono only for now |
+| Audio Out 1 | Mix Out | Mono or Left channel |
+| Audio Out 2 | Mix Out | Mono or Right channel |
